@@ -2,10 +2,13 @@ import numpy as np
 import math
 import torch
 import torch.nn as nn
-import ipdb
 
 
 class Network:
+    """
+    This is a wrapper class that gathers all the layers of a network and can be directly fed the input spikes.
+    """
+
     def __init__(self, layers):
         self.layers = layers
 
@@ -40,7 +43,7 @@ class LIFLayer(nn.Module):
         self.voltage_traces = torch.empty((1, n_neurons))
 
     def forward(self, input_spikes):
-        # decay voltages
+        # decay membrane voltages
         self.voltages *= self.voltage_decay
 
         # check if neurons spiked
@@ -51,11 +54,13 @@ class LIFLayer(nn.Module):
 
         # increase synapse currents if input spiked
         for i in range(self.output_dimension):
-            self.synapses[:, i] += self.weights[:, i] * input_spikes
+            self.synapses[:, i] += self.weights[:, i] * input_spikes.squeeze()
 
-        # integrate currents
+        # integrate synapse currents
         self.voltages += (
             self.synapses.sum(dim=0) - output_spikes * self.spiking_threshold
         )
+
+        # record voltage history
         self.voltage_traces = torch.cat((self.voltage_traces, self.voltages), dim=0)
         return output_spikes
