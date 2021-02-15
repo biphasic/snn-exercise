@@ -1,4 +1,3 @@
-import numpy as np
 import math
 import torch
 import torch.nn as nn
@@ -8,16 +7,17 @@ class Network:
     """
     This is a wrapper class that gathers all the layers of a network and can be directly fed the input spikes.
     """
-
     def __init__(self, layers):
         self.layers = layers
 
     def __call__(self, input_spikes):
+        # output spikes array has the same amount of time steps like the input
         output_spikes = torch.zeros(
             (input_spikes.shape[0], self.layers[-1].output_dimension)
         )
-        for i, spike_slice in enumerate(input_spikes):
-            spikes = spike_slice
+        # for each time step of spikes, we pass the signal through all the layers
+        for i, spike_input in enumerate(input_spikes):
+            spikes = spike_input
             for layer in self.layers:
                 spikes = layer(spikes)
             output_spikes[i, :] = spikes
@@ -26,7 +26,9 @@ class Network:
 
 class LIFLayer(nn.Module):
     """
-    A stateful Leaky Integrate and Fire (LIF) layer of neurons. As pyTorch does not explicitly support the solution of differential equations, we convert the ordinary differential equations that describe the neuron dynamics into difference equations and solve them at regular intervals dt.
+    A stateful Leaky Integrate and Fire (LIF) layer of neurons. As pyTorch does not explicitly support 
+    the solution of differential equations, we convert the ordinary differential equations that describe 
+    the neuron dynamics into difference equations and solve them at regular intervals dt.
     """
 
     def __init__(
@@ -50,7 +52,7 @@ class LIFLayer(nn.Module):
         output_spikes = self.voltages >= self.spiking_threshold
 
         # decay synapse currents
-        self.synapses = self.synapses * self.synapse_decay
+        self.synapses *= self.synapse_decay
 
         # increase synapse currents if input spiked
         for i in range(self.output_dimension):
@@ -60,7 +62,7 @@ class LIFLayer(nn.Module):
         self.voltages += (
             self.synapses.sum(dim=0) - output_spikes * self.spiking_threshold
         )
-
+        
         # record voltage history
         self.voltage_traces = torch.cat((self.voltage_traces, self.voltages), dim=0)
         return output_spikes
